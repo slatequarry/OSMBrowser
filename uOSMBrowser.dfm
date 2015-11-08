@@ -56,6 +56,8 @@ object frmOSMbrowser: TfrmOSMbrowser
     TabPosition = tpBottom
     object tabKarte: TTabSheet
       Caption = 'Karte'
+      DoubleBuffered = False
+      ParentDoubleBuffered = False
       DesignSize = (
         976
         683)

@@ -7,7 +7,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
   JvComponentBase, JvAppStorage, JvAppIniStorage, Vcl.Menus, IdBaseComponent,
   IdComponent, IdTCPConnection, IdTCPClient, IdHTTP, Vcl.ComCtrls, uOSM,
-  JvExControls, JvxSlider;
+  JvExControls, JvxSlider, System.StrUtils;
 
 type
   TfrmOSMbrowser = class(TForm)
@@ -32,12 +32,13 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure slZoomChange(Sender: TObject);
+    procedure TileLoaded(Tile: TTile);
   private
     FValid       :boolean;
     FLat,FLon    :double;
     FZoom        :integer;
     xtile, ytile :integer;
-    tiles        :array of array of TBitmap;
+    tiles        :array of array of TTile;
     osm          :tOSM;
     procedure loadConfig(start :boolean = false);
     procedure search(text :string);
@@ -58,10 +59,13 @@ uses uConfigDialog;
 
 procedure TfrmOSMbrowser.FormCreate(Sender: TObject);
 begin
+  PaintBox.ControlStyle := PaintBox.ControlStyle + [csopaque];
+
   FValid:=false;
   FZoom:=1;
   FLat:=0; FLon:=0;
   osm:=tOSM.Create;
+  osm.OnTileLoaded:=TileLoaded;
   loadConfig(true);
 end;
 
@@ -82,12 +86,25 @@ begin
 end;
 
 procedure TfrmOSMbrowser.PaintBoxPaint(Sender: TObject);
-var x,y :integer;
+var x,y  :integer;
+    tile :TTile;
+    bmp  :TBitmap;
+    r    :TRect;
 begin
   if FValid then begin
     for x:=Low(tiles) to High(tiles) do
-      for y:=Low(tiles[x]) to High(tiles[x]) do
-        PaintBox.Canvas.Draw(x*256,y*256,tiles[x,y]);
+      for y:=Low(tiles[x]) to High(tiles[x]) do begin
+        tile:=tiles[x,y];
+        r:=Rect(x*256,y*256,(x+1)*256,(y+1)*256);
+        if tile.Loaded then begin
+          bmp:=tile.Bitmap;
+          PaintBox.Canvas.Draw(x*256,y*256,bmp);
+//          PaintBox.Canvas.TextOut(x*256+10,y*256+10,IntToStr(bmp.Width)+'*'+IntToStr(bmp.Height));
+        end else begin
+          PaintBox.Canvas.FillRect(r);
+          PaintBox.Canvas.TextRect(r,x*256+10,y*256+10,IfThen(tile.Error,'Fehler !','Lade ...'));
+        end;
+      end;
   end else begin
     PaintBox.Canvas.FillRect(Rect(0,0,PaintBox.Width-1,PaintBox.Height-1));
   end;
@@ -139,6 +156,12 @@ begin
   setZoom(slZoom.Value);
 end;
 
+procedure TfrmOSMbrowser.TileLoaded(Tile: TTile);
+begin
+  PaintBox.Invalidate;
+  slZoom.Invalidate;
+end;
+
 procedure TfrmOSMbrowser.refresh;
 var xcount,ycount :integer;
     x,y     :integer;
@@ -150,6 +173,8 @@ begin
 
     xcount:=PaintBox.Width div 256 + 1;
     ycount:=PaintBox.Height div 256 + 1;
+//    xcount:=1;
+//    ycount:=1;
     setLength(tiles,xcount);
     for x:=0 to xcount-1 do begin
       setLength(tiles[x],ycount);
