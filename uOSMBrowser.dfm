@@ -14,6 +14,7 @@ object frmOSMbrowser: TfrmOSMbrowser
   OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnResize = FormResize
   PixelsPerInch = 96
   TextHeight = 13
   object pnlSearch: TPanel
@@ -55,6 +56,9 @@ object frmOSMbrowser: TfrmOSMbrowser
     TabPosition = tpBottom
     object tabKarte: TTabSheet
       Caption = 'Karte'
+      DesignSize = (
+        976
+        683)
       object PaintBox: TPaintBox
         Left = 0
         Top = 0
@@ -66,6 +70,20 @@ object frmOSMbrowser: TfrmOSMbrowser
         ExplicitTop = 136
         ExplicitWidth = 105
         ExplicitHeight = 105
+      end
+      object slZoom: TJvxSlider
+        Left = 3
+        Top = 643
+        Width = 150
+        Height = 40
+        Increment = 1
+        MinValue = 1
+        MaxValue = 19
+        Options = [soShowPoints, soSmooth]
+        TabOrder = 0
+        Value = 1
+        Anchors = [akLeft, akBottom]
+        OnChange = slZoomChange
       end
     end
     object tabMemo: TTabSheet

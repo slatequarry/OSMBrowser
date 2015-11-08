@@ -131,7 +131,7 @@ object frmConfig: TfrmConfig
     Width = 564
     Height = 90
     Align = alClient
-    Caption = 'Suche'
+    Caption = 'Start'
     TabOrder = 2
     ExplicitLeft = 248
     ExplicitTop = 176
@@ -140,9 +140,17 @@ object frmConfig: TfrmConfig
     object lblStartsearch: TLabel
       Left = 16
       Top = 26
-      Width = 24
+      Width = 29
       Height = 13
-      Caption = 'Start'
+      Caption = 'Suche'
+      FocusControl = edtServer
+    end
+    object lblZoom: TLabel
+      Left = 16
+      Top = 54
+      Width = 26
+      Height = 13
+      Caption = 'Zoom'
       FocusControl = edtServer
     end
     object edtStartsearch: TEdit
@@ -151,6 +159,16 @@ object frmConfig: TfrmConfig
       Width = 473
       Height = 21
       TabOrder = 0
+    end
+    object edtZoom: TJvSpinEdit
+      Left = 72
+      Top = 50
+      Width = 57
+      Height = 21
+      MaxValue = 19.000000000000000000
+      MinValue = 1.000000000000000000
+      Value = 1.000000000000000000
+      TabOrder = 1
     end
   end
 end
