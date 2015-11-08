@@ -42,7 +42,6 @@ object frmOSMbrowser: TfrmOSMbrowser
       Height = 21
       Align = alClient
       TabOrder = 1
-      Text = 'Unterwellenborn Viehtreibe'
     end
   end
   object PageControl: TPageControl

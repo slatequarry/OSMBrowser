@@ -30,12 +30,15 @@ type
     procedure FormCreate(Sender: TObject);
   private
     lat,lon      :double;
+    zoom         :integer;
     xtile, ytile :integer;
     tiles        :array of array of TBitmap;
     osm          :tOSM;
+    procedure loadConfig(start :boolean = false);
+    procedure search(text :string);
+    procedure refresh;
   public
     { Public-Deklarationen }
-    procedure refresh;
   end;
 
 var
@@ -50,11 +53,14 @@ uses uConfigDialog;
 procedure TfrmOSMbrowser.FormCreate(Sender: TObject);
 begin
   osm:=tOSM.Create;
+  loadConfig(true);
+
 end;
 
 procedure TfrmOSMbrowser.mnuConfigClick(Sender: TObject);
 begin
-  TfrmConfig.showDialog(JvAppIni);
+  if TfrmConfig.showDialog(JvAppIni) then
+    loadConfig;
 end;
 
 procedure TfrmOSMbrowser.mnuQuitClick(Sender: TObject);
@@ -71,12 +77,33 @@ begin
 end;
 
 procedure TfrmOSMbrowser.btnSearchClick(Sender: TObject);
+begin
+  search(edtSearch.Text);
+end;
+
+procedure TfrmOSMbrowser.loadConfig(start :boolean = false);
+var s  :string;
+begin
+  osm.ProxyParams.BasicAuthentication:=JvAppIni.ReadBoolean('Proxy\BasicAuth',false);
+  osm.ProxyParams.ProxyServer:=JvAppIni.ReadString('Proxy\Server','');
+  osm.ProxyParams.ProxyPort:=JvAppIni.ReadInteger('Proxy\Port',0);
+  osm.ProxyParams.ProxyUsername:=JvAppIni.ReadString('Proxy\User','');
+  osm.ProxyParams.ProxyPassword:=JvAppIni.ReadString('Proxy\Password','');
+  if start then begin
+    s:=JvAppIni.ReadString('Search\Start','');
+    if s<>'' then begin
+      edtSearch.Text:=s;
+      search(s);
+    end;
+  end;
+end;
+
+procedure TfrmOSMbrowser.search(text :string);
 var xcount,ycount :integer;
     x,y     :integer;
-    zoom    :integer;
 begin
-  if osm.Search(edtSearch.Text,lat,lon) then begin
-    zoom:=16;
+  if osm.Search(text,lat,lon) then begin
+    zoom:=14;
     osm.CoordsToTile(lat,lon,zoom,xtile,ytile);
     Memo.Lines.Add('lat/lon = '+FloatToStr(lat) + ' / ' + FloatToStr(lon));
     Memo.Lines.Add('xtile/ytile = '+IntToStr(xtile) + ' / ' + IntToStr(ytile));

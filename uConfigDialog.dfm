@@ -31,7 +31,7 @@ object frmConfig: TfrmConfig
       NumGlyphs = 2
       TabOrder = 0
     end
-    object BitBtn1: TBitBtn
+    object btnCancel: TBitBtn
       Left = 448
       Top = 8
       Width = 89
@@ -123,6 +123,34 @@ object frmConfig: TfrmConfig
       Height = 21
       MaxValue = 9999.000000000000000000
       TabOrder = 2
+    end
+  end
+  object GroupBox2: TGroupBox
+    Left = 0
+    Top = 169
+    Width = 564
+    Height = 90
+    Align = alClient
+    Caption = 'Suche'
+    TabOrder = 2
+    ExplicitLeft = 248
+    ExplicitTop = 176
+    ExplicitWidth = 185
+    ExplicitHeight = 105
+    object lblStartsearch: TLabel
+      Left = 16
+      Top = 26
+      Width = 24
+      Height = 13
+      Caption = 'Start'
+      FocusControl = edtServer
+    end
+    object edtStartsearch: TEdit
+      Left = 72
+      Top = 23
+      Width = 473
+      Height = 21
+      TabOrder = 0
     end
   end
 end
