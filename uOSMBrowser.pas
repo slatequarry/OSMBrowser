@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls, Math,
   JvComponentBase, JvAppStorage, JvAppIniStorage, Vcl.Menus, IdBaseComponent,
   IdComponent, IdTCPConnection, IdTCPClient, IdHTTP, Vcl.ComCtrls, uOSM,
   JvExControls, JvxSlider, System.StrUtils, System.IOUtils;
@@ -39,6 +39,9 @@ type
       Y: Integer);
     procedure PaintBoxMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure PaintBoxDblClick(Sender: TObject);
+    procedure FormMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
   private
     moveing        :boolean;
     xs,ys          :integer;
@@ -85,6 +88,13 @@ begin
   loadConfig(true);
 end;
 
+procedure TfrmOSMbrowser.FormMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  Handled:=true;
+  slZoom.Value:=slZoom.Value+IfThen(WheelDelta>0,1,-1);
+end;
+
 procedure TfrmOSMbrowser.FormResize(Sender: TObject);
 begin
   refresh;
@@ -101,6 +111,18 @@ end;
 procedure TfrmOSMbrowser.mnuQuitClick(Sender: TObject);
 begin
   Application.Terminate;
+end;
+
+procedure TfrmOSMbrowser.PaintBoxDblClick(Sender: TObject);
+var mp :TPoint;
+begin
+  GetCursorPos(mp);
+  mp:=PaintBox.ScreenToClient(mp);
+  osm.TileToCoord(
+    FXTile-(PaintBox.Width div 2-mp.X)/256,
+    FYTile-(PaintBox.Height div 2-mp.Y)/256,
+    FZoom,FLat,FLon);
+  slZoom.Value:=slZoom.Value+1;
 end;
 
 procedure TfrmOSMbrowser.PaintBoxMouseDown(Sender: TObject;
@@ -195,8 +217,11 @@ end;
 
 procedure TfrmOSMbrowser.search(text :string);
 begin
-  FValid:=osm.Search(text,FLat,FLon);
-  refresh;
+  if osm.Search(text,FLat,FLon) then begin
+    FValid:=true;
+    refresh;
+  end else
+    ShowMessage('Nicht''s gefunden :(');
 end;
 
 procedure TfrmOSMbrowser.setZoom(aZoom :integer);

@@ -203,26 +203,24 @@ var xml     :string;
     place   :IXMLNode;
     fs      :TFormatSettings;
 begin
-//  try
-    http := TidHttp.Create(nil);
-    http.ProxyParams.Assign(ProxyParams);
-    try
-      http.Request.UserAgent:='Delphi OSM Browser';
-      xml := http.Get('http://nominatim.openstreetmap.org/search?format=xml&q='+ReplaceStr(text,' ','+'));
-      doc := TXMLDocument.Create(nil);
-      doc.LoadFromXML(xml);
+  http := TidHttp.Create(nil);
+  http.ProxyParams.Assign(ProxyParams);
+  try
+    http.Request.UserAgent:='Delphi OSM Browser';
+    xml := http.Get('http://nominatim.openstreetmap.org/search?format=xml&q='+ReplaceStr(text,' ','+'));
+    doc := TXMLDocument.Create(nil);
+    doc.LoadFromXML(xml);
+    if doc.DocumentElement.ChildNodes.Count>0 then begin
       place:=doc.DocumentElement.ChildNodes[0];
       fs:=TFormatSettings.Create;
       fs.DecimalSeparator:='.';
       lat:=StrToFloat(place.Attributes['lat'],fs);
       lon:=StrToFloat(place.Attributes['lon'],fs);
       result:=True;
-    finally
-      FreeAndNil(http);
     end;
-//  except
-//    result:=false;
-//  end;
+  finally
+    FreeAndNil(http);
+  end;
 end;
 
 procedure TOsm.setTileUrl(aTileUrl: string);

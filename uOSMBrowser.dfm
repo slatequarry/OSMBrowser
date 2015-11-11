@@ -14,6 +14,7 @@ object frmOSMbrowser: TfrmOSMbrowser
   OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnMouseWheel = FormMouseWheel
   OnResize = FormResize
   PixelsPerInch = 96
   TextHeight = 13
@@ -33,9 +34,9 @@ object frmOSMbrowser: TfrmOSMbrowser
       Height = 21
       Align = alRight
       Caption = 'Suche'
+      Default = True
       TabOrder = 0
       OnClick = btnSearchClick
-      ExplicitHeight = 25
     end
     object edtSearch: TEdit
       Left = 6
@@ -69,6 +70,7 @@ object frmOSMbrowser: TfrmOSMbrowser
         Height = 683
         Cursor = crHandPoint
         Align = alClient
+        OnDblClick = PaintBoxDblClick
         OnMouseDown = PaintBoxMouseDown
         OnMouseMove = PaintBoxMouseMove
         OnMouseUp = PaintBoxMouseUp
