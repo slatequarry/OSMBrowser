@@ -6,7 +6,7 @@ uses
   System.Classes, System.SysUtils, System.Generics.Collections,
   IdHTTPHeaderInfo, IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient, IdHTTP,
   StrUtils, Xml.XMLIntf, Xml.XMLDoc, Math,
-  Vcl.Graphics, Vcl.Imaging.pngimage;
+  Vcl.Graphics, Vcl.Imaging.pngimage, Vcl.Imaging.Jpeg;
 
 type
   TTileKey = record
@@ -19,19 +19,23 @@ type
 
   TTile = class(TObject)
   private
-    FOsm     :TOsm;
-    FKey     :TTileKey;
-    FUrl     :string;
-    FLoaded  :boolean;
-    FError   :boolean;
-    FBitmap  :TBitmap;
-    FThread  :TThread;
+    FOsm      :TOsm;
+    FKey      :TTileKey;
+    FUrl      :string;
+    FLoaded   :boolean;
+    FError    :boolean;
+    FErrorMsg :string;
+    FBitmap   :TBitmap;
+    FThread   :TThread;
     function getBitmap :TBitmap;
   public
     constructor Create(aOsm :TOsm; aKey :TTileKey; aUrl :string);
+    destructor Destroy;
     property Key :TTileKey read FKey;
+    property Url :string read FUrl;
     property Loaded :boolean read FLoaded;
     property Error :boolean read FError;
+    property ErrorMsg :string read FErrorMsg;
     property Bitmap :TBitmap read getBitmap;
   end;
 
@@ -39,16 +43,21 @@ type
 
   TOsm = class(TObject)
   private
+    FTileUrl      :string;
     FOnTileLoaded :TTileLoadedEvent;
     FProxyParams  :TIdProxyConnectionInfo;
     FTiles        :TDictionary<TTileKey,TTile>;
     procedure TileLoaded(aTile :TTile);
+    procedure setTileUrl(aTileUrl :string);
+    procedure clearTiles;
   public
+    property TileUrl :string read FTileUrl write setTileUrl;
     property ProxyParams :TIdProxyConnectionInfo read FProxyParams;
     property OnTileLoaded :TTileLoadedEvent read FOnTileLoaded write FOnTileLoaded;
     constructor Create;
     function getTile(zoom, xtile, ytile :integer) :TTile;
-    procedure CoordsToTile(lat_deg, lon_deg :double; zoom :integer; var xtile, ytile :integer);
+    procedure CoordToTile(lat_deg, lon_deg :double; zoom :integer; var xtile, ytile :double);
+    procedure TileToCoord(xtile, ytile :double; zoom :integer; var lat_deg, lon_deg :double);
     function Search(text :string; var lat,lon :double) :boolean;
   end;
 
@@ -70,7 +79,8 @@ begin
   FThread:=TThread.CreateAnonymousThread(procedure
     var http    :TidHttp;
         stream  :TMemoryStream;
-        png     :TPngImage;
+        img     :TGraphic;
+        msg     :string;
     begin
       try
         http:=TidHttp.Create(nil);
@@ -80,18 +90,21 @@ begin
           try
             http.Get(FUrl,stream);
             stream.Position:=0;
-            png:=TPngImage.Create;
+            if EndsText('.png',FUrl) then
+              img:=TPngImage.Create
+            else
+              img:=TJpegImage.Create;
             try
-              png.LoadFromStream(stream);
+              img.LoadFromStream(stream);
               TThread.Synchronize(nil, procedure
                 begin
                   FBitmap:=TBitmap.Create;
-                  FBitmap.Assign(png);
+                  FBitmap.Assign(img);
                   FLoaded:=true;
                   FError:=false;
                 end);
             finally
-              FreeAndNil(png);
+              FreeAndNil(img);
             end;
           finally
             FreeAndNil(stream);
@@ -100,12 +113,16 @@ begin
           FreeAndNil(http);
         end;
       except
-        TThread.Synchronize(nil, procedure
-          begin
-            FBitmap:=nil;
-            FLoaded:=false;
-            FError:=true;
-          end);
+        on e: Exception do begin
+          msg:=e.Message;
+          TThread.Synchronize(nil, procedure
+            begin
+              FBitmap:=nil;
+              FLoaded:=false;
+              FError:=true;
+              FErrorMsg:=msg;
+            end);
+        end;
       end;
       TThread.Synchronize(nil, procedure
         begin
@@ -114,6 +131,12 @@ begin
     end);
   FThread.FreeOnTerminate:=true;
   FThread.Start;
+end;
+
+destructor TTile.Destroy;
+begin
+  if assigned(FBitmap) then
+    FBitmap.Free;
 end;
 
 function TTile.getBitmap: TBitmap;
@@ -137,9 +160,7 @@ var key  :TTileKey;
 begin
   key:=TTileKey.Create(zoom,xtile,ytile);
   if not FTiles.TryGetValue(key,tile) then begin
-    url:='http://a.tile.openstreetmap.org/${z}/${x}/${y}.png';
-//    url:='http://otile1.mqcdn.com/tiles/1.0.0/osm/${z}/${x}/${y}.png';
-//    url:='http://a.tile.opencyclemap.org/cycle/${z}/${x}/${y}.png';
+    url:=FTileUrl;
     url:=ReplaceStr(url,'${z}',IntToStr(zoom));
     url:=ReplaceStr(url,'${x}',IntToStr(xtile));
     url:=ReplaceStr(url,'${y}',IntToStr(ytile));
@@ -149,13 +170,30 @@ begin
   result:=tile;
 end;
 
-procedure TOsm.CoordsToTile(lat_deg, lon_deg :double; zoom :integer; var xtile, ytile :integer);
-var lat_rad, n: Real;
+procedure TOsm.clearTiles;
+var item: TPair<TTileKey, TTile>;
+begin
+  for item in FTiles do
+    item.Value.Free;
+  FTiles.Clear;
+end;
+
+procedure TOsm.CoordToTile(lat_deg, lon_deg :double; zoom :integer; var xtile, ytile :double);
+var lat_rad, n: Double;
 begin
   lat_rad := DegToRad(lat_deg);
   n := Power(2, zoom);
-  xtile := Trunc(((lon_deg + 180) / 360) * n);
-  ytile := Trunc((1 - (ln(Tan(lat_rad) + (1 /Cos(lat_rad))) / Pi)) / 2 * n);
+  xtile := ((lon_deg + 180) / 360) * n;
+  ytile := (1 - (ln(Tan(lat_rad) + (1 /Cos(lat_rad))) / Pi)) / 2 * n;
+end;
+
+procedure TOsm.TileToCoord(xtile, ytile :double; zoom :integer; var lat_deg, lon_deg :double);
+var lat_rad, n: Real;
+begin
+  n := Power(2, zoom);
+  lat_rad := Arctan (Sinh (Pi * (1 - 2 * ytile / n)));
+  lat_deg := RadtoDeg (lat_rad);
+  lon_deg := xtile / n * 360.0 - 180.0;
 end;
 
 function TOsm.Search(text :string; var lat,lon :double) :boolean;
@@ -163,8 +201,9 @@ var xml     :string;
     http    :TidHttp;
     doc     :IXMLDocument;
     place   :IXMLNode;
+    fs      :TFormatSettings;
 begin
-  try
+//  try
     http := TidHttp.Create(nil);
     http.ProxyParams.Assign(ProxyParams);
     try
@@ -173,14 +212,24 @@ begin
       doc := TXMLDocument.Create(nil);
       doc.LoadFromXML(xml);
       place:=doc.DocumentElement.ChildNodes[0];
-      lat:=StrToFloat(ReplaceStr(place.Attributes['lat'],'.',','));
-      lon:=StrToFloat(ReplaceStr(place.Attributes['lon'],'.',','));
+      fs:=TFormatSettings.Create;
+      fs.DecimalSeparator:='.';
+      lat:=StrToFloat(place.Attributes['lat'],fs);
+      lon:=StrToFloat(place.Attributes['lon'],fs);
       result:=True;
     finally
       FreeAndNil(http);
     end;
-  except
-    result:=false;
+//  except
+//    result:=false;
+//  end;
+end;
+
+procedure TOsm.setTileUrl(aTileUrl: string);
+begin
+  if FTileUrl<>aTileUrl then begin
+    FTileUrl:=aTileUrl;
+    clearTiles;
   end;
 end;
 

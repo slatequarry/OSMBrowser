@@ -3,7 +3,7 @@ object frmConfig: TfrmConfig
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Einstellungen'
-  ClientHeight = 300
+  ClientHeight = 342
   ClientWidth = 564
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -17,11 +17,11 @@ object frmConfig: TfrmConfig
   TextHeight = 13
   object pnlButtons: TPanel
     Left = 0
-    Top = 259
+    Top = 301
     Width = 564
     Height = 41
     Align = alBottom
-    TabOrder = 0
+    TabOrder = 3
     object btnOk: TBitBtn
       Left = 337
       Top = 8
@@ -41,12 +41,12 @@ object frmConfig: TfrmConfig
       TabOrder = 1
     end
   end
-  object GroupBox1: TGroupBox
+  object boxProxy: TGroupBox
     Left = 0
-    Top = 0
+    Top = 141
     Width = 564
-    Height = 169
-    Align = alTop
+    Height = 160
+    Align = alClient
     Caption = 'Proxy'
     TabOrder = 1
     object Label1: TLabel
@@ -125,18 +125,14 @@ object frmConfig: TfrmConfig
       TabOrder = 2
     end
   end
-  object GroupBox2: TGroupBox
+  object boxStart: TGroupBox
     Left = 0
-    Top = 169
+    Top = 57
     Width = 564
-    Height = 90
-    Align = alClient
+    Height = 84
+    Align = alTop
     Caption = 'Start'
     TabOrder = 2
-    ExplicitLeft = 248
-    ExplicitTop = 176
-    ExplicitWidth = 185
-    ExplicitHeight = 105
     object lblStartsearch: TLabel
       Left = 16
       Top = 26
@@ -169,6 +165,37 @@ object frmConfig: TfrmConfig
       MinValue = 1.000000000000000000
       Value = 1.000000000000000000
       TabOrder = 1
+    end
+  end
+  object boxTileUrl: TGroupBox
+    Left = 0
+    Top = 0
+    Width = 564
+    Height = 57
+    Align = alTop
+    Caption = 'Karten-Dienst'
+    TabOrder = 0
+    object Label6: TLabel
+      Left = 16
+      Top = 25
+      Width = 33
+      Height = 13
+      Caption = 'Tile-Url'
+      FocusControl = cbbTileUrl
+    end
+    object cbbTileUrl: TComboBox
+      Left = 72
+      Top = 22
+      Width = 473
+      Height = 21
+      Style = csDropDownList
+      TabOrder = 0
+      Items.Strings = (
+        'http://a.tile.openstreetmap.org/${z}/${x}/${y}.png'
+        'http://otile1.mqcdn.com/tiles/1.0.0/osm/${z}/${x}/${y}.jpg'
+        'http://a.tile.opencyclemap.org/cycle/${z}/${x}/${y}.png'
+        'http://a.tile.thunderforest.com/landscape/${z}/${x}/${y}.png'
+        'http://a.tile.thunderforest.com/outdoors/${z}/${x}/${y}.png')
     end
   end
 end

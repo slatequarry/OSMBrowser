@@ -35,6 +35,7 @@ object frmOSMbrowser: TfrmOSMbrowser
       Caption = 'Suche'
       TabOrder = 0
       OnClick = btnSearchClick
+      ExplicitHeight = 25
     end
     object edtSearch: TEdit
       Left = 6
@@ -66,7 +67,11 @@ object frmOSMbrowser: TfrmOSMbrowser
         Top = 0
         Width = 976
         Height = 683
+        Cursor = crHandPoint
         Align = alClient
+        OnMouseDown = PaintBoxMouseDown
+        OnMouseMove = PaintBoxMouseMove
+        OnMouseUp = PaintBoxMouseUp
         OnPaint = PaintBoxPaint
         ExplicitLeft = 416
         ExplicitTop = 136

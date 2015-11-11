@@ -7,7 +7,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
   JvComponentBase, JvAppStorage, JvAppIniStorage, Vcl.Menus, IdBaseComponent,
   IdComponent, IdTCPConnection, IdTCPClient, IdHTTP, Vcl.ComCtrls, uOSM,
-  JvExControls, JvxSlider, System.StrUtils;
+  JvExControls, JvxSlider, System.StrUtils, System.IOUtils;
 
 type
   TfrmOSMbrowser = class(TForm)
@@ -33,13 +33,26 @@ type
     procedure FormResize(Sender: TObject);
     procedure slZoomChange(Sender: TObject);
     procedure TileLoaded(Tile: TTile);
+    procedure PaintBoxMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure PaintBoxMouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
+    procedure PaintBoxMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   private
-    FValid       :boolean;
-    FLat,FLon    :double;
-    FZoom        :integer;
-    xtile, ytile :integer;
-    tiles        :array of array of TTile;
-    osm          :tOSM;
+    moveing        :boolean;
+    xs,ys          :integer;
+    xst,yst        :double;
+
+    FValid         :boolean;
+    FLat,FLon      :double;
+    FZoom          :integer;
+    FXTile, FYTile :double;
+
+    xo,yo          :integer;
+    tiles          :array of array of TTile;
+
+    osm            :tOSM;
     procedure loadConfig(start :boolean = false);
     procedure search(text :string);
     procedure setZoom(aZoom :integer);
@@ -66,6 +79,9 @@ begin
   FLat:=0; FLon:=0;
   osm:=tOSM.Create;
   osm.OnTileLoaded:=TileLoaded;
+
+  if not TFile.Exists(JvAppIni.FullFileName) then
+    TfrmConfig.showDialog(JvAppIni,false);
   loadConfig(true);
 end;
 
@@ -76,8 +92,10 @@ end;
 
 procedure TfrmOSMbrowser.mnuConfigClick(Sender: TObject);
 begin
-  if TfrmConfig.showDialog(JvAppIni) then
+  if TfrmConfig.showDialog(JvAppIni) then begin
     loadConfig;
+    refresh;
+  end;
 end;
 
 procedure TfrmOSMbrowser.mnuQuitClick(Sender: TObject);
@@ -85,24 +103,62 @@ begin
   Application.Terminate;
 end;
 
+procedure TfrmOSMbrowser.PaintBoxMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Button=mbLeft then begin
+    moveing:=true;
+    xs:=X; ys:=Y;
+    xst:=FXTile; yst:=FYTile;
+  end;
+end;
+
+procedure TfrmOSMbrowser.PaintBoxMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var xm,ym  :integer;
+    xt,yt  :double;
+begin
+  if moveing then begin
+    xm:=xs-X; ym:=ys-Y;
+    xt:=xst+xm/256; yt:=yst+ym/256;
+    osm.TileToCoord(xt,yt,FZoom,FLat,FLon);
+    refresh;
+  end;
+end;
+
+procedure TfrmOSMbrowser.PaintBoxMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if moveing then begin
+    moveing:=false;
+    PaintBox.Invalidate;
+  end;
+end;
+
 procedure TfrmOSMbrowser.PaintBoxPaint(Sender: TObject);
-var x,y  :integer;
-    tile :TTile;
-    bmp  :TBitmap;
-    r    :TRect;
+var x,y   :integer;
+    xp,yp :integer;
+    tile  :TTile;
+    bmp   :TBitmap;
+    r     :TRect;
 begin
   if FValid then begin
     for x:=Low(tiles) to High(tiles) do
       for y:=Low(tiles[x]) to High(tiles[x]) do begin
         tile:=tiles[x,y];
-        r:=Rect(x*256,y*256,(x+1)*256,(y+1)*256);
+        xp:=x*256+xo; yp:=y*256+yo;
+        r:=Rect(xp,yp,xp+256,yp+256);
         if tile.Loaded then begin
           bmp:=tile.Bitmap;
-          PaintBox.Canvas.Draw(x*256,y*256,bmp);
-//          PaintBox.Canvas.TextOut(x*256+10,y*256+10,IntToStr(bmp.Width)+'*'+IntToStr(bmp.Height));
+          PaintBox.Canvas.Draw(xp,yp,bmp);
         end else begin
           PaintBox.Canvas.FillRect(r);
-          PaintBox.Canvas.TextRect(r,x*256+10,y*256+10,IfThen(tile.Error,'Fehler !','Lade ...'));
+          if tile.Error then begin
+            PaintBox.Canvas.TextOut(xp+10,yp+10,'Fehler !');
+            PaintBox.Canvas.TextOut(xp+10,yp+30,tile.ErrorMsg);
+          end else begin
+            PaintBox.Canvas.TextOut(xp+10,yp+10,'Lade ...');
+            PaintBox.Canvas.TextOut(xp+10,yp+30,tile.Url);
+          end;
         end;
       end;
   end else begin
@@ -119,6 +175,7 @@ procedure TfrmOSMbrowser.loadConfig(start :boolean = false);
 var s  :string;
     z  :integer;
 begin
+  osm.TileUrl:=JvAppIni.ReadString('Server\TileUrl','');
   osm.ProxyParams.BasicAuthentication:=JvAppIni.ReadBoolean('Proxy\BasicAuth',false);
   osm.ProxyParams.ProxyServer:=JvAppIni.ReadString('Proxy\Server','');
   osm.ProxyParams.ProxyPort:=JvAppIni.ReadInteger('Proxy\Port',0);
@@ -163,23 +220,35 @@ begin
 end;
 
 procedure TfrmOSMbrowser.refresh;
-var xcount,ycount :integer;
-    x,y     :integer;
+var x,y,xc,yc :integer;
+    w,h,x0,y0 :double;
 begin
   if FValid then begin
-    osm.CoordsToTile(FLat,FLon,FZoom,xtile,ytile);
-    Memo.Lines.Add('lat/lon = '+FloatToStr(FLat) + ' / ' + FloatToStr(FLon));
-    Memo.Lines.Add('xtile/ytile = '+IntToStr(xtile) + ' / ' + IntToStr(ytile));
+    osm.CoordToTile(FLat,FLon,FZoom,FXTile,FYTile);
 
-    xcount:=PaintBox.Width div 256 + 1;
-    ycount:=PaintBox.Height div 256 + 1;
-//    xcount:=1;
-//    ycount:=1;
-    setLength(tiles,xcount);
-    for x:=0 to xcount-1 do begin
-      setLength(tiles[x],ycount);
-      for y:=0 to ycount-1 do
-        tiles[x,y]:=osm.getTile(FZoom,xtile-xcount div 2+x,ytile-ycount div 2+y);
+    w:=PaintBox.Width/256; h:=PaintBox.Height/256;
+    xc:=trunc(w)+2; yc:=trunc(h)+2;
+
+    x0:=FXTile-w/2; y0:=FYTile-h/2;
+    xo:=-round(frac(x0)*256); yo:=-round(frac(y0)*256);
+
+    Memo.Clear;
+    Memo.Lines.Add('lat/lon = '+ FloatToStr(FLat) + ' / ' + FloatToStr(FLon));
+    Memo.Lines.Add('xtile/ytile = '+ FloatToStr(FXTile) + ' / ' + FloatToStr(FYTile));
+    Memo.Lines.Add('size(pixels) = '+ IntToStr(PaintBox.Width) + ' / ' + IntToStr(PaintBox.Height));
+    Memo.Lines.Add('size(tiles) = '+ FloatToStr(w) + ' / ' + FloatToStr(h));
+    Memo.Lines.Add('size of tiles array = '+ FloatToStr(xc) + ' / ' + FloatToStr(yc));
+    Memo.Lines.Add('upper left(tiles) = '+ FloatToStr(x0) + ' / ' + FloatToStr(y0));
+    Memo.Lines.Add('offset(pixels) = '+ FloatToStr(xo) + ' / ' + FloatToStr(yo));
+
+    for x:=xc to High(tiles) do
+      setLength(tiles[x],0);
+
+    setLength(tiles,xc);
+    for x:=0 to xc-1 do begin
+      setLength(tiles[x],yc);
+      for y:=0 to yc-1 do
+        tiles[x,y]:=osm.getTile(FZoom,trunc(x0)+x,trunc(y0)+y);
     end;
   end;
   PaintBox.Invalidate;
