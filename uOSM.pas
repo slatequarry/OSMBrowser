@@ -30,7 +30,7 @@ type
     function getBitmap :TBitmap;
   public
     constructor Create(aOsm :TOsm; aKey :TTileKey; aUrl :string);
-    destructor Destroy;
+    destructor Destroy; override;
     property Key :TTileKey read FKey;
     property Url :string read FUrl;
     property Loaded :boolean read FLoaded;
@@ -203,6 +203,7 @@ var xml     :string;
     place   :IXMLNode;
     fs      :TFormatSettings;
 begin
+  result:=false;
   http := TidHttp.Create(nil);
   http.ProxyParams.Assign(ProxyParams);
   try
